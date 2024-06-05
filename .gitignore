@@ -1,2 +1,6 @@
 .DS_Store
 yolov9e.pt
+dataset/
+output/
+resources/
+*.mp4
