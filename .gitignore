@@ -4,3 +4,6 @@ dataset/
 output/
 resources/
 *.mp4
+*.png
+archive/
+*.zip
