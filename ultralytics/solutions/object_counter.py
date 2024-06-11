@@ -155,11 +155,11 @@ class ObjectCounter:
 
         if tracks[0].boxes.id is not None:
             boxes = tracks[0].boxes.xyxy.cpu()
-            clss = tracks[0].boxes.cls.cpu().tolist()
+            cls = tracks[0].boxes.cls.cpu().tolist()
             track_ids = tracks[0].boxes.id.int().cpu().tolist()
 
             # Extract tracks
-            for box, track_id, cls in zip(boxes, track_ids, clss):
+            for box, track_id, cls in zip(boxes, track_ids, cls):
                 # Skip if class not person or object is stationary
                 if cls!=0 and track_id in self.stationary_ids:
                     continue
