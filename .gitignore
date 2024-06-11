@@ -7,3 +7,5 @@ resources/
 *.png
 archive/
 *.zip
+*.pyc 
+

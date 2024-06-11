@@ -160,8 +160,8 @@ class ObjectCounter:
 
             # Extract tracks
             for box, track_id, cls in zip(boxes, track_ids, clss):
-                # or the class is not equal to person 
-                if track_id in self.stationary_ids:
+                # Skip if class not person or object is stationary
+                if cls!=0 and track_id in self.stationary_ids:
                     continue
 
                 # Draw bounding box
