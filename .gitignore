@@ -1,6 +1,6 @@
 .DS_Store
 yolov9e.pt
-dataset/
+datasets/
 output/
 resources/
 *.mp4
@@ -8,3 +8,4 @@ resources/
 archive/
 *.zip
 *.pyc
+*.txt
