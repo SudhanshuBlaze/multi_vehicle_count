@@ -5,7 +5,7 @@ from collections import defaultdict
 import cv2
 
 from ultralytics.utils.checks import check_imshow, check_requirements
-from ultralytics.utils.plotting import Annotator, colors
+from custom.ultralytics.utils.plotting import Annotator, colors
 
 check_requirements("shapely>=2.0.0")
 
@@ -33,6 +33,7 @@ class ObjectCounter:
         line_dist_thresh=15,
         cls_txtdisplay_gap=50,
         text_offset=(0,0),
+        direction_wise_count=True
     ):
         """
         Initializes the ObjectCounter with various tracking and counting parameters.
@@ -73,6 +74,7 @@ class ObjectCounter:
         self.view_in_counts = view_in_counts
         self.view_out_counts = view_out_counts
         self.stationary_ids = set()
+        self.object_speed_ids = {}
 
         self.names = classes_names  # Classes names
         self.annotator = None  # Annotator
@@ -96,6 +98,7 @@ class ObjectCounter:
         self.track_color = track_color
                 
         self.text_offset = text_offset
+        self.direction_wise_count = direction_wise_count
 
 
         # Check if environment supports imshow
@@ -155,18 +158,25 @@ class ObjectCounter:
 
         if tracks[0].boxes.id is not None:
             boxes = tracks[0].boxes.xyxy.cpu()
-            cls = tracks[0].boxes.cls.cpu().tolist()
+            clss = tracks[0].boxes.cls.cpu().tolist()
             track_ids = tracks[0].boxes.id.int().cpu().tolist()
 
             # Extract tracks
-            for box, track_id, cls in zip(boxes, track_ids, cls):
+            for box, track_id, cls in zip(boxes, track_ids, clss):
+                
                 # Skip if class not person or object is stationary
                 if cls!=0 and track_id in self.stationary_ids:
                     continue
+                
+                # Check if person is moving too fast, if so, change class to bicycle
+                if cls == 0 and track_id in self.object_speed_ids:
+                    speed = self.object_speed_ids[track_id]
+                    if speed > 20:
+                        cls = 1  
 
                 # Draw bounding box
                 self.annotator.box_label(box, label=f"{self.names[cls]}#{track_id}", color=colors(int(track_id), True))
-
+                
                 # Store class info
                 if self.names[cls] not in self.class_wise_count:
                     self.class_wise_count[self.names[cls]] = {"IN": 0, "OUT": 0}
@@ -209,24 +219,28 @@ class ObjectCounter:
                             self.count_ids.append(track_id)
 
                             if (box[0] - prev_position[0]) * (self.counting_region.centroid.x - prev_position[0]) > 0:
-                                self.in_counts += 1
+                                self.in_counts += 5
                                 self.class_wise_count[self.names[cls]]["IN"] += 1
                             else:
-                                self.out_counts += 1
+                                self.out_counts += 5
                                 self.class_wise_count[self.names[cls]]["OUT"] += 1
 
         labels_dict = {}
 
         for key, value in self.class_wise_count.items():
             if value["IN"] != 0 or value["OUT"] != 0:
-                if not self.view_in_counts and not self.view_out_counts:
-                    continue
-                elif not self.view_in_counts:
-                    labels_dict[str.capitalize(key)] = f"OUT {value['OUT']}"
-                elif not self.view_out_counts:
-                    labels_dict[str.capitalize(key)] = f"IN {value['IN']}"
+                if not self.direction_wise_count:
+                    total_count = value["IN"] + value["OUT"]
+                    labels_dict[str.capitalize(key)] = f"{total_count}"
                 else:
-                    labels_dict[str.capitalize(key)] = f"IN {value['IN']} OUT {value['OUT']}"
+                    if not self.view_in_counts and not self.view_out_counts:
+                        continue
+                    elif not self.view_in_counts:
+                        labels_dict[str.capitalize(key)] = f"OUT {value['OUT']}"
+                    elif not self.view_out_counts:
+                        labels_dict[str.capitalize(key)] = f"IN {value['IN']}"
+                    else:
+                        labels_dict[str.capitalize(key)] = f"IN {value['IN']} OUT {value['OUT']}"
 
         if labels_dict:
             self.annotator.display_analytics(self.im0, labels_dict, self.count_txt_color, self.count_bg_color, 10, self.text_offset)
@@ -242,7 +256,7 @@ class ObjectCounter:
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 return
 
-    def start_counting(self, im0, tracks, stationary_ids):
+    def start_counting(self, im0, tracks, stationary_ids=set(), object_speed_ids={}):
         """
         Main function to start the object counting process.
 
@@ -252,7 +266,8 @@ class ObjectCounter:
         """
         self.im0 = im0  # store image
         self.stationary_ids = stationary_ids
-        self.extract_and_process_tracks(tracks) 
+        self.object_speed_ids = object_speed_ids  # store the speed and class information
+        self.extract_and_process_tracks(tracks)
 
         if self.view_img:
             self.display_frames()
