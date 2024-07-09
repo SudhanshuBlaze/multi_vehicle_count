@@ -10,3 +10,7 @@ archive/
 *.pyc
 *.txt
 *.pt
+*runs/
+*.txt
+*.xml
+*.jpg
